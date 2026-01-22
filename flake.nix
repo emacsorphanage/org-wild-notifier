@@ -37,8 +37,9 @@
           buildInputs = [ emacsWithPackages ];
           src = ./.;
         } ''
-          cp -r $src/* .
+          cp -rL $src/* .
           chmod -R u+w .
+          ln -sf tests/fixtures fixtures
           emacs --batch \
             -L . \
             -L tests \
