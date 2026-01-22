@@ -29,6 +29,9 @@ org-wild-notifier takes a different approach: it checks your agenda periodically
 | Predicate whitelist (only notify when a predicate matches)               | org-wild-notifier-predicate-whitelist  | nil                         |
 | Predicate blacklist (never notify when a predicate matches)              | org-wild-notifier-predicate-blacklist  | nil                         |
 | Property for additional notification times                               | org-wild-notifier-alert-times-property | WILD_NOTIFIER_NOTIFY_BEFORE |
+| Property for absolute notification times                                 | org-wild-notifier-notify-at-property   | WILD_NOTIFIER_NOTIFY_AT     |
+| Time format for notification display                                     | org-wild-notifier-display-time-format-string | %I:%M %p               |
+| Times of day to show alerts for day-wide events                          | org-wild-notifier-day-wide-alert-times | nil                         |
 
 *** Predicate Filters
 
@@ -55,6 +58,20 @@ You can specify additional notification times for individual entries using the ~
 
 With this configuration, you'll receive notifications at 80, 60, 55, 43, 10 (the default), and 5 minutes before the event.
 
+*** Absolute Notification Times
+
+For notifications at specific times (rather than relative to the event), use the ~WILD_NOTIFIER_NOTIFY_AT~ property with org timestamps:
+
+#+BEGIN_SRC org
+* TODO Prepare for presentation
+  SCHEDULED: <2024-01-21 Sun 14:00>
+  :PROPERTIES:
+  :WILD_NOTIFIER_NOTIFY_AT: <2024-01-21 Sun 09:00> <2024-01-20 Sat 20:00>
+  :END:
+#+END_SRC
+
+This triggers notifications at the exact times specified, regardless of when the event is scheduled. Repeating timestamps are also supported (e.g., ~<2024-01-21 Sun 09:00 +1d>~).
+
 *** Customizing Alert Styles
 
 This package uses the [[https://github.com/jwiegley/alert][alert]] package for notifications. You can customize notification appearance using alert's [[https://github.com/jwiegley/alert#builtin-alert-styles][styles]] facility. See the alert source code for examples of defining custom styles.
@@ -69,3 +86,10 @@ org-wild-notifier operates in two modes:
 
 - *Automatic mode:* Enable ~org-wild-notifier-mode~ to check for upcoming events once per minute.
 - *Manual mode:* Call ~org-wild-notifier-check~ to perform a one-time check.
+
+*** Interactive Scheduling
+
+You can also schedule one-off notifications for the org heading at point:
+
+- ~org-wild-notifier-schedule-at-point~ - Schedule a notification N minutes from now.
+- ~org-wild-notifier-schedule-at-point-at-time~ - Schedule a notification at a specific time.
