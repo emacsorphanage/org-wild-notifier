@@ -1,12 +1,16 @@
 * org-wild-notifier.el
 
-[[https://github.com/colonelpanic8/org-wild-notifier.el/actions/workflows/test.yml][https://github.com/colonelpanic8/org-wild-notifier.el/actions/workflows/test.yml/badge.svg]]
+[[https://github.com/emacsorphanage/org-wild-notifier.el/actions/workflows/test.yml][https://github.com/emacsorphanage/org-wild-notifier.el/actions/workflows/test.yml/badge.svg]]
 [[https://stable.melpa.org/#/org-wild-notifier][file:https://stable.melpa.org/packages/org-wild-notifier-badge.svg]]
 [[https://melpa.org/#/org-wild-notifier][file:https://melpa.org/packages/org-wild-notifier-badge.svg]]
 
 ** Overview
 
 org-wild-notifier provides desktop notifications for org-agenda events. It aims to behave like a typical calendar application: unobtrusive and easy to configure.
+
+** Maintenance
+
+Maintenance has resumed under the Emacs Orphanage. Please file issues and pull requests in this repository.
 
 ** Comparison with Other Packages
 
