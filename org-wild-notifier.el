@@ -8,7 +8,7 @@
 ;; Version: 0.5.0
 ;; Package-Requires: ((alert "1.2") (async "1.9.3") (dash "2.18.0") (emacs "26.1"))
 ;; Keywords: notification alert org org-agenda agenda
-;; URL: https://github.com/akhramov/org-wild-notifier.el
+;; URL: https://github.com/colonelpanic8/org-wild-notifier.el
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

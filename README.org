@@ -1,6 +1,6 @@
 * org-wild-notifier.el
 
-[[https://travis-ci.org/akhramov/org-wild-notifier.el][https://travis-ci.org/akhramov/org-wild-notifier.el.svg?branch=master]]
+[[https://github.com/colonelpanic8/org-wild-notifier.el/actions/workflows/test.yml][https://github.com/colonelpanic8/org-wild-notifier.el/actions/workflows/test.yml/badge.svg]]
 [[https://stable.melpa.org/#/org-wild-notifier][file:https://stable.melpa.org/packages/org-wild-notifier-badge.svg]]
 [[https://melpa.org/#/org-wild-notifier][file:https://melpa.org/packages/org-wild-notifier-badge.svg]]
 
