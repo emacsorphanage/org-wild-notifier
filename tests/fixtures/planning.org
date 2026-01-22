@@ -54,3 +54,21 @@
    :WILD_NOTIFIER_NOTIFY_AT: <2018-01-04 Thu 14:30>
    :WILD_NOTIFIER_NOTIFY_BEFORE: 45
    :END:
+** TODO TODO event with deadline only at 21:00
+   DEADLINE: <2018-01-04 Thu 21:00>
+** TODO TODO event with scheduled and deadline at 21:10
+   DEADLINE: <2018-01-04 Thu 21:10> SCHEDULED: <2018-01-04 Thu 21:10>
+   :PROPERTIES:
+   :WILD_NOTIFIER_ENTRIES: DEADLINE
+   :END:
+** TODO TODO event with entries override to SCHEDULED at 21:20
+   DEADLINE: <2018-01-04 Thu 21:20> SCHEDULED: <2018-01-04 Thu 21:20>
+   :PROPERTIES:
+   :WILD_NOTIFIER_ENTRIES: SCHEDULED
+   :END:
+* Entries override section                                          :entries:
+  :PROPERTIES:
+  :WILD_NOTIFIER_ENTRIES: DEADLINE
+  :END:
+** TODO TODO child event inherits entries override at 21:30
+   DEADLINE: <2018-01-04 Thu 21:30> SCHEDULED: <2018-01-04 Thu 21:30>

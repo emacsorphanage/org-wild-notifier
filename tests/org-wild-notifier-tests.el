@@ -294,3 +294,31 @@ minutes)"
   :time "16:50"
   :expected-alerts
   ("TODO event scheduled on 16:00 with deadline at 17:00 at 17:00 (in 10 minutes)"))
+
+;;; Tests for org-wild-notifier-entries (timestamp type filtering)
+
+(org-wild-notifier-test entries-deadline-only
+  "Tests that org-wild-notifier-entries can filter to DEADLINE only"
+  :time "20:50"
+  :overrides ((org-wild-notifier-entries '("DEADLINE")))
+  :expected-alerts
+  ("TODO event with deadline only at 21:00 at 21:00 (in 10 minutes)"))
+
+(org-wild-notifier-test entries-property-override-deadline
+  "Tests that WILD_NOTIFIER_ENTRIES property overrides to DEADLINE only"
+  :time "21:00"
+  :expected-alerts
+  ("TODO event with scheduled and deadline at 21:10 at 21:10 (in 10 minutes)"))
+
+(org-wild-notifier-test entries-property-override-scheduled
+  "Tests that WILD_NOTIFIER_ENTRIES property overrides to SCHEDULED only"
+  :time "21:10"
+  :expected-alerts
+  ("TODO event with entries override to SCHEDULED at 21:20 at 21:20 (in 10 minutes)"))
+
+(org-wild-notifier-test entries-property-inheritance
+  "Tests that WILD_NOTIFIER_ENTRIES property is inherited from parent"
+  :time "21:20"
+  :overrides ((org-wild-notifier-tags-whitelist '("entries")))
+  :expected-alerts
+  ("TODO child event inherits entries override at 21:30 at 21:30 (in 10 minutes)"))

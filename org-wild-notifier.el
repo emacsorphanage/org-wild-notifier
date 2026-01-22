@@ -125,6 +125,15 @@ Valid values are \"DEADLINE\", \"SCHEDULED\", and \"TIMESTAMP\"."
   :group 'org-wild-notifier
   :type '(repeat string))
 
+(defcustom org-wild-notifier-entries-property "WILD_NOTIFIER_ENTRIES"
+  "Property to override which timestamp types trigger notifications.
+When set on an org entry (or inherited from parent headings or file),
+this overrides `org-wild-notifier-entries' for that entry.
+Value should be space-separated timestamp types, e.g., \"DEADLINE SCHEDULED\"."
+  :package-version '(org-wild-notifier . "0.7.0")
+  :group 'org-wild-notifier
+  :type 'string)
+
 (defcustom org-wild-notifier-display-time-format-string "%I:%M %p"
   "Format string for `format-time-string' when displaying times."
   :package-version '(org-wild-notifier . "0.5.0")
@@ -405,7 +414,9 @@ Returns a list of notification messages"
                  "org-wild-notifier-tags-blacklist"
                  "org-wild-notifier-predicate-whitelist"
                  "org-wild-notifier-predicate-blacklist"
-                 "org-wild-notifier-notify-at-property")))
+                 "org-wild-notifier-notify-at-property"
+                 "org-wild-notifier-entries"
+                 "org-wild-notifier-entries-property")))
         string-end)))
 
 
@@ -464,6 +475,14 @@ EVENT-MSG is a string representation of the event."
           (* (decoded-time-minute parsed) 60))))
      2)))
 
+(defun org-wild-notifier--get-entries-for-marker (marker)
+  "Get the list of timestamp entry types to check for MARKER.
+First checks for a per-entry override via `org-wild-notifier-entries-property'
+\(with inheritance), then falls back to `org-wild-notifier-entries'."
+  (if-let ((prop-value (org-entry-get marker org-wild-notifier-entries-property t)))
+      (split-string prop-value)
+    org-wild-notifier-entries))
+
 (defun org-wild-notifier--extract-time (marker)
   "Extract timestamps from MARKER.
 Timestamps are extracted as cons cells.  car holds org-formatted
@@ -474,7 +493,7 @@ string, cdr holds time in list-of-integer format."
       (and org-timestamp
            (cons org-timestamp
                  (org-wild-notifier--timestamp-parse org-timestamp))))
-    org-wild-notifier-entries)))
+    (org-wild-notifier--get-entries-for-marker marker))))
 
 (defun org-wild-notifier--extract-title (marker)
   "Extract event title from MARKER.
