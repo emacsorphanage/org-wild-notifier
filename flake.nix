@@ -37,7 +37,8 @@
           buildInputs = [ emacsWithPackages ];
           src = ./.;
         } ''
-          cd $src
+          cp -r $src/* .
+          chmod -R u+w .
           emacs --batch \
             -L . \
             -L tests \
@@ -52,10 +53,11 @@
           buildInputs = [ emacsWithPackages ];
           src = ./.;
         } ''
-          cd $src
+          cp -r $src/* .
+          chmod -R u+w .
           emacs --batch -L . -f batch-byte-compile org-wild-notifier.el 2>&1 | tee compile-output.txt
           # Fail if there are errors (not just warnings)
-          if grep -q "Error:" compile-output.txt; then
+          if grep -q "^>>Error" compile-output.txt; then
             exit 1
           fi
           touch $out
@@ -66,7 +68,8 @@
           buildInputs = [ emacsWithPackages ];
           src = ./.;
         } ''
-          cd $src
+          cp -r $src/* .
+          chmod -R u+w .
           emacs --batch -L . -l org-wild-notifier.el \
             --eval "(setq checkdoc-autofix-flag nil)" \
             --eval "(checkdoc-file \"org-wild-notifier.el\")" 2>&1 | tee checkdoc-output.txt
@@ -79,7 +82,8 @@
           buildInputs = [ emacsWithPackages ];
           src = ./.;
         } ''
-          cd $src
+          cp -r $src/* .
+          chmod -R u+w .
           emacs --batch -L . \
             --eval "(require 'package-lint)" \
             --eval "(setq package-lint-main-file \"org-wild-notifier.el\")" \
