@@ -1237,3 +1237,124 @@ minutes)"
         (should (plist-get it :notify-at))
         (should (plist-get it :title))
         (should (plist-get it :type))))))
+
+;;; Tests for duplicate event handling with repeating tasks
+
+(ert-deftest gather-events-no-duplicates-for-repeating-tasks ()
+  "Tests that gather-events-sync does not return duplicate events for repeating tasks.
+When a daily repeating task appears on multiple days in the 2-day agenda span,
+it should only be returned once (deduplicated by marker)."
+  (cl-letf* ((org-agenda-files (list (expand-file-name "repeating-habits.org" "fixtures")))
+             (org-todo-keywords (list "TODO" "DONE"))
+             (time-string "January 4, 2018 09:00")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-agenda-start-day (time-to-days (current-time)))
+             ((symbol-function 'org-today)
+              (lambda () (time-to-days (current-time))))
+             (org-wild-notifier-keyword-whitelist '("TODO"))
+             (org-wild-notifier-keyword-blacklist nil)
+             (org-wild-notifier-tags-whitelist nil)
+             (org-wild-notifier-tags-blacklist nil)
+             (org-wild-notifier-predicate-whitelist nil)
+             (org-wild-notifier-predicate-blacklist '(org-wild-notifier-done-keywords-predicate)))
+    (let ((events (org-wild-notifier--gather-events-sync)))
+      ;; Should have exactly 4 events (one per org heading)
+      ;; NOT more due to repeating tasks appearing multiple times in agenda
+      (should (= (length events) 4))
+      ;; Check that all event titles are unique
+      (let ((titles (--map (cdr (assoc 'title it)) events)))
+        (should (= (length titles) (length (-uniq titles))))))))
+
+(ert-deftest upcoming-notifications-no-duplicates-for-repeating-tasks ()
+  "Tests that get-upcoming-notifications does not return duplicate notifications.
+Each unique org entry should only generate one set of notifications,
+not multiple sets due to appearing on multiple days in the agenda."
+  (cl-letf* ((org-agenda-files (list (expand-file-name "repeating-habits.org" "fixtures")))
+             (org-todo-keywords (list "TODO" "DONE"))
+             (time-string "January 4, 2018 09:50")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-agenda-start-day (time-to-days (current-time)))
+             ((symbol-function 'org-today)
+              (lambda () (time-to-days (current-time))))
+             (org-wild-notifier-keyword-whitelist '("TODO"))
+             (org-wild-notifier-keyword-blacklist nil)
+             (org-wild-notifier-tags-whitelist nil)
+             (org-wild-notifier-tags-blacklist nil)
+             (org-wild-notifier-predicate-whitelist nil)
+             (org-wild-notifier-predicate-blacklist '(org-wild-notifier-done-keywords-predicate))
+             (org-wild-notifier-alert-time '(10))
+             (org-wild-notifier-day-wide-alert-times nil))
+    (let ((notifications (org-wild-notifier-get-upcoming-notifications)))
+      ;; Count notifications per title - each title should have consistent count
+      ;; based on its intervals, not multiplied by days it appears in agenda
+      (let* ((daily-habit-notifications
+              (--filter (string= (plist-get it :title) "Daily habit at 10:00")
+                        notifications))
+             ;; With alert-time of (10), daily habit at 10:00 should have exactly 1 notification
+             ;; NOT 2 (one per day it appears in the 2-day agenda)
+             (expected-count 1))
+        (should (= (length daily-habit-notifications) expected-count))))))
+
+;;; Tests for file/pos/id extraction in events and notifications
+
+(ert-deftest gather-info-includes-file-and-pos ()
+  "Tests that gather-info extracts file and pos from marker.
+This is important for identifying notifications uniquely across API calls."
+  (cl-letf* ((org-agenda-files (list (expand-file-name "planning.org" "fixtures")))
+             (org-todo-keywords (list "TODO" "IN PROGRESS" "DONE"))
+             (time-string "January 4, 2018 15:50")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-agenda-start-day (time-to-days (current-time)))
+             ((symbol-function 'org-today)
+              (lambda () (time-to-days (current-time))))
+             (org-wild-notifier-keyword-whitelist '("TODO"))
+             (org-wild-notifier-keyword-blacklist nil)
+             (org-wild-notifier-tags-whitelist nil)
+             (org-wild-notifier-tags-blacklist nil)
+             (org-wild-notifier-predicate-whitelist nil)
+             (org-wild-notifier-predicate-blacklist '(org-wild-notifier-done-keywords-predicate)))
+    (let ((events (org-wild-notifier--gather-events-sync)))
+      ;; Should have events
+      (should (> (length events) 0))
+      ;; Each event should have file and pos extracted
+      (--each events
+        (should (assoc 'file it))
+        (should (assoc 'pos it))
+        ;; file should be a string path
+        (should (stringp (cdr (assoc 'file it))))
+        ;; pos should be a number
+        (should (numberp (cdr (assoc 'pos it))))))))
+
+(ert-deftest notifications-include-file-and-pos ()
+  "Tests that get-upcoming-notifications includes file and pos in each notification.
+These identifiers are required for the client to uniquely identify notifications."
+  (cl-letf* ((org-agenda-files (list (expand-file-name "planning.org" "fixtures")))
+             (org-todo-keywords (list "TODO" "IN PROGRESS" "DONE"))
+             (time-string "January 4, 2018 15:50")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-agenda-start-day (time-to-days (current-time)))
+             ((symbol-function 'org-today)
+              (lambda () (time-to-days (current-time))))
+             (org-wild-notifier-keyword-whitelist '("TODO"))
+             (org-wild-notifier-keyword-blacklist nil)
+             (org-wild-notifier-tags-whitelist nil)
+             (org-wild-notifier-tags-blacklist nil)
+             (org-wild-notifier-predicate-whitelist nil)
+             (org-wild-notifier-predicate-blacklist '(org-wild-notifier-done-keywords-predicate))
+             (org-wild-notifier-alert-time '(10))
+             (org-wild-notifier-day-wide-alert-times nil))
+    (let ((notifications (org-wild-notifier-get-upcoming-notifications)))
+      ;; Should have notifications
+      (should (> (length notifications) 0))
+      ;; Each notification should have file and pos
+      (--each notifications
+        (should (plist-get it :file))
+        (should (plist-get it :pos))
+        ;; file should be a string path
+        (should (stringp (plist-get it :file)))
+        ;; pos should be a number
+        (should (numberp (plist-get it :pos)))))))

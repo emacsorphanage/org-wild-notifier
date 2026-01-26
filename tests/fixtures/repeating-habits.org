@@ -1,0 +1,9 @@
+* Repeating habits
+** TODO Daily habit at 10:00
+   SCHEDULED: <2018-01-04 Thu 10:00 +1d>
+** TODO Daily habit without time
+   SCHEDULED: <2018-01-04 Thu +1d>
+** TODO Bi-daily habit at 14:00
+   SCHEDULED: <2018-01-04 Thu 14:00 +2d>
+** TODO Non-repeating event at 16:00
+   SCHEDULED: <2018-01-04 Thu 16:00>

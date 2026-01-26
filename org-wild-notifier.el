@@ -604,14 +604,30 @@ in the WILD_NOTIFIER_NOTIFY_AT property."
           (setq start match-end-pos)))
       (nreverse timestamps))))
 
+(defun org-wild-notifier--extract-marker-location (marker)
+  "Extract file, position, and ID from MARKER.
+Returns an alist with file, pos, and optionally id."
+  (when (and marker (marker-buffer marker))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char (marker-position marker))
+        (let ((file (buffer-file-name))
+              (pos (marker-position marker))
+              (id (org-entry-get nil "ID")))
+          `((file . ,file)
+            (pos . ,pos)
+            ,@(when id `((id . ,id)))))))))
+
 (defun org-wild-notifier--gather-info (marker)
   "Collect information about an event.
 MARKER acts like event's identifier."
-  `((marker . ,marker)
-    (times . (,(org-wild-notifier--extract-time marker)))
-    (title . ,(org-wild-notifier--extract-title marker))
-    (intervals . ,(org-wild-notifier--extract-notication-intervals marker))
-    (notify-at . ,(org-wild-notifier--extract-notify-at-times marker))))
+  (let ((location (org-wild-notifier--extract-marker-location marker)))
+    `((marker . ,marker)
+      (times . (,(org-wild-notifier--extract-time marker)))
+      (title . ,(org-wild-notifier--extract-title marker))
+      (intervals . ,(org-wild-notifier--extract-notication-intervals marker))
+      (notify-at . ,(org-wild-notifier--extract-notify-at-times marker))
+      ,@location)))
 
 (defun org-wild-notifier--stop ()
   "Stop the notification timer and cancel any in-progress check."
@@ -718,13 +734,19 @@ Returns a list of notification plists, each containing:
   :type - Symbol: relative, absolute, or day-wide
   :title - Event title string
   :marker - Org marker for navigation/queries
+  :file - Source org file path
+  :pos - Position in file
+  :id - Org-mode ID property (if set)
   :event - The full event alist"
   (let ((notifications nil)
         (marker (cdr (assoc 'marker event)))
         (title (cdr (assoc 'title event)))
         (times (cadr (assoc 'times event)))
         (intervals (cdr (assoc 'intervals event)))
-        (notify-at-times (cdr (assoc 'notify-at event))))
+        (notify-at-times (cdr (assoc 'notify-at event)))
+        (file (cdr (assoc 'file event)))
+        (pos (cdr (assoc 'pos event)))
+        (id (cdr (assoc 'id event))))
     ;; Check relative notifications (intervals before event times)
     (dolist (time-info times)
       (let ((timestamp-string (plist-get time-info :timestamp-string))
@@ -741,6 +763,9 @@ Returns a list of notification plists, each containing:
                           :type 'relative
                           :title title
                           :marker marker
+                          :file file
+                          :pos pos
+                          :id id
                           :event event)
                     notifications))))))
     ;; Check absolute notifications (notify-at times)
@@ -753,6 +778,9 @@ Returns a list of notification plists, each containing:
                   :type 'absolute
                   :title title
                   :marker marker
+                  :file file
+                  :pos pos
+                  :id id
                   :event event)
             notifications))
     ;; Check day-wide notifications (overdue or day-wide events at configured times)
@@ -766,9 +794,28 @@ Returns a list of notification plists, each containing:
                     :type 'day-wide
                     :title title
                     :marker marker
+                    :file file
+                    :pos pos
+                    :id id
                     :event event)
               notifications)))
     (nreverse notifications)))
+
+(defun org-wild-notifier--deduplicate-markers (markers)
+  "Remove duplicate MARKERS pointing to the same buffer position.
+When a repeating task appears on multiple days in the agenda,
+the same org entry is returned multiple times with identical markers.
+This deduplicates based on (buffer . position) to ensure each org entry
+is only processed once."
+  (let ((seen (make-hash-table :test 'equal))
+        (result nil))
+    (dolist (marker markers)
+      (when (and marker (marker-buffer marker))
+        (let ((key (cons (marker-buffer marker) (marker-position marker))))
+          (unless (gethash key seen)
+            (puthash key t seen)
+            (push marker result)))))
+    (nreverse result)))
 
 (defun org-wild-notifier--gather-events-sync ()
   "Synchronously gather events from agenda files.
@@ -787,6 +834,7 @@ Returns a list of event alists suitable for notification processing."
                    (-non-nil)
                    (org-wild-notifier--apply-whitelist)
                    (org-wild-notifier--apply-blacklist)
+                   (org-wild-notifier--deduplicate-markers)
                    (-map 'org-wild-notifier--gather-info))))
       (kill-buffer org-agenda-buffer-name))
     events))
