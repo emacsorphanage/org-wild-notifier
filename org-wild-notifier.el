@@ -668,6 +668,77 @@ TIME is a string in HH:MM format or any format accepted by `org-read-date'."
     (message "Notification scheduled for \"%s\" at %s"
              title (format-time-string "%Y-%m-%d %H:%M" target-time))))
 
+(defun org-wild-notifier--get-notifications-for-event (event)
+  "Get all notifications for EVENT.
+Returns a list of notification plists with :notify-at, :event-time, :minutes-before, :type."
+  (let ((notifications nil)
+        (title (cdr (assoc 'title event)))
+        (times (cadr (assoc 'times event)))
+        (intervals (cdr (assoc 'intervals event)))
+        (notify-at-times (cdr (assoc 'notify-at event))))
+    ;; Check relative notifications (intervals before event times)
+    (dolist (time-pair times)
+      (when (org-wild-notifier--has-timestamp (car time-pair))
+        (let ((event-time (cdr time-pair)))
+          (dolist (interval intervals)
+            (let ((notify-time (time-subtract event-time (seconds-to-time (* 60 interval)))))
+              (push (list :notify-at notify-time
+                          :event-time event-time
+                          :event-time-string (car time-pair)
+                          :minutes-before interval
+                          :type 'relative
+                          :title title)
+                    notifications))))))
+    ;; Check absolute notifications (notify-at times)
+    (dolist (notify-time notify-at-times)
+      (push (list :notify-at notify-time
+                  :event-time nil
+                  :event-time-string nil
+                  :minutes-before nil
+                  :type 'absolute
+                  :title title)
+            notifications))
+    (nreverse notifications)))
+
+(defun org-wild-notifier--gather-events-sync ()
+  "Synchronously gather events from agenda files.
+Returns a list of event alists suitable for notification processing."
+  (let ((org-agenda-use-time-grid nil)
+        (org-agenda-compact-blocks t)
+        (events nil))
+    (save-window-excursion
+      (org-agenda-list 2 (org-read-date nil nil "today"))
+      (with-current-buffer org-agenda-buffer-name
+        (setq events
+              (->> (org-split-string (buffer-string) "\n")
+                   (--map (plist-get
+                           (org-fix-agenda-info (text-properties-at 0 it))
+                           'org-marker))
+                   (-non-nil)
+                   (org-wild-notifier--apply-whitelist)
+                   (org-wild-notifier--apply-blacklist)
+                   (-map 'org-wild-notifier--gather-info))))
+      (kill-buffer org-agenda-buffer-name))
+    events))
+
+;;;###autoload
+(defun org-wild-notifier-get-upcoming-notifications ()
+  "Get all notifications for upcoming events.
+Returns a list of notification plists, each containing:
+  :notify-at - Emacs time when notification should fire
+  :event-time - Emacs time of the event (nil for absolute notifications)
+  :event-time-string - Original timestamp string
+  :minutes-before - Minutes before event (nil for absolute notifications)
+  :type - Symbol 'relative or 'absolute
+  :title - Event title"
+  (let* ((events (org-wild-notifier--gather-events-sync))
+         (all-notifications nil))
+    (dolist (event events)
+      (let ((event-notifications
+             (org-wild-notifier--get-notifications-for-event event)))
+        (setq all-notifications (append all-notifications event-notifications))))
+    all-notifications))
+
 (provide 'org-wild-notifier)
 
 ;;; org-wild-notifier.el ends here
