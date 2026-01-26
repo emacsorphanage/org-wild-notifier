@@ -225,24 +225,30 @@ in order to ignore seconds."
    (time-add (current-time) (seconds-to-time (* 60 interval)))
    timestamp))
 
+(defun org-wild-notifier--notification-due-now-p (notification)
+  "Return non-nil if NOTIFICATION should fire at the current minute."
+  (org-wild-notifier--time= (plist-get notification :notify-at) (current-time)))
+
+(defun org-wild-notifier--get-current-notifications (event)
+  "Get notifications for EVENT that are due at the current minute.
+Returns a list of notification plists filtered to those due now."
+  (->> (org-wild-notifier--get-notifications-for-event event)
+       (--filter (org-wild-notifier--notification-due-now-p it))))
+
 (defun org-wild-notifier--notifications (event)
-  "Get notifications for given EVENT.
-Returns a list of time information interval pairs."
-  (->> (list
-        (org-wild-notifier--filter-day-wide-events (cadr (assoc 'times event)))
-        (cdr (assoc 'intervals event)))
-         (apply '-table-flat (lambda (ts int) (list ts int)))
-         ;; When no values are provided for table flat, we get the second values
-         ;; paired with nil.
-         (--filter (not (null (car it))))
-         (--filter (org-wild-notifier--timestamp-within-interval-p (cdar it) (cadr it)))))
+  "Get notifications for given EVENT that are due now.
+Returns a list of notification plists.
+DEPRECATED: Use `org-wild-notifier--get-current-notifications' instead."
+  (org-wild-notifier--get-current-notifications event))
 
 (defun org-wild-notifier--has-timestamp (s)
   (string-match org-ts-regexp0 s)
   (match-beginning 7))
 
 (defun org-wild-notifier--filter-day-wide-events (times)
-  (--filter (org-wild-notifier--has-timestamp (car it)) times))
+  "Filter out day-wide events (those without a time component) from TIMES.
+TIMES is a list of time plists with :timestamp-string."
+  (--filter (org-wild-notifier--has-timestamp (plist-get it :timestamp-string)) times))
 
 (defun org-wild-notifier--time-left (seconds)
   "Human-friendly representation for SECONDS."
@@ -308,35 +314,45 @@ Returns a list of time information interval pairs."
            (org-wild-notifier-event-has-any-day-wide-timestamp event))))
 
 (defun org-wild-notifier-event-has-any-day-wide-timestamp (event)
-  (--any (not (org-wild-notifier--has-timestamp (car it)))
-         (car (cdr (assoc 'times event)))))
+  "Return non-nil if EVENT has any day-wide timestamp (no time component)."
+  (--any (not (org-wild-notifier--has-timestamp (plist-get it :timestamp-string)))
+         (cadr (assoc 'times event))))
 
 (defun org-wild-notifier-event-has-any-passed-time (event)
-  (--any (time-less-p (cdr it) (current-time))
-         (car (cdr (assoc 'times event )))))
+  "Return non-nil if EVENT has any timestamp that has already passed."
+  (--any (time-less-p (plist-get it :time) (current-time))
+         (cadr (assoc 'times event))))
 
 (defun org-wild-notifier--day-wide-notification-text (event)
   "For given STR-INTERVAL list and EVENT get notification wording."
   (format "%s is due or scheduled today"
           (cdr (assoc 'title event))))
 
+(defun org-wild-notifier--format-notification (notification)
+  "Format NOTIFICATION plist as a human-readable message string."
+  (let ((type (plist-get notification :type))
+        (title (plist-get notification :title))
+        (event-time-string (plist-get notification :event-time-string))
+        (minutes-before (plist-get notification :minutes-before)))
+    (if (eq type 'absolute)
+        (format "%s (scheduled reminder)" title)
+      (format "%s at %s (%s)"
+              title
+              (org-wild-notifier--get-hh-mm-from-org-time-string event-time-string)
+              (org-wild-notifier--time-left (* 60 minutes-before))))))
+
 (defun org-wild-notifier--check-notify-at (event)
   "Check if any absolute notification times in EVENT match now.
-Returns list of notification messages."
-  (--keep
-   (when (org-wild-notifier--time= it (current-time))
-     (format "%s (scheduled reminder)" (cdr (assoc 'title event))))
-   (cdr (assoc 'notify-at event))))
+Returns list of notification plists.
+DEPRECATED: Use `org-wild-notifier--get-current-notifications' instead."
+  (--filter (eq (plist-get it :type) 'absolute)
+            (org-wild-notifier--get-current-notifications event)))
 
 (defun org-wild-notifier--check-event (event)
-  "Get notifications for given EVENT.
-Returns a list of notification messages"
-  (append
-   ;; Relative time notifications
-   (->> (org-wild-notifier--notifications event)
-        (--map (org-wild-notifier--notification-text `(,(caar it) . ,(cadr it)) event)))
-   ;; Absolute time notifications
-   (org-wild-notifier--check-notify-at event)))
+  "Get notifications for given EVENT that are due now.
+Returns a list of notification messages."
+  (->> (org-wild-notifier--get-current-notifications event)
+       (--map (org-wild-notifier--format-notification it))))
 
 (defun org-wild-notifier--get-tags (marker)
   "Retrieve tags of MARKER."
@@ -485,14 +501,17 @@ First checks for a per-entry override via `org-wild-notifier-entries-property'
 
 (defun org-wild-notifier--extract-time (marker)
   "Extract timestamps from MARKER.
-Timestamps are extracted as cons cells.  car holds org-formatted
-string, cdr holds time in list-of-integer format."
+Returns a list of plists, each containing:
+  :timestamp-type - symbol: deadline, scheduled, or timestamp
+  :timestamp-string - the original org timestamp string
+  :time - parsed time in Emacs time format"
   (-non-nil
    (--map
     (let ((org-timestamp (org-entry-get marker it)))
       (and org-timestamp
-           (cons org-timestamp
-                 (org-wild-notifier--timestamp-parse org-timestamp))))
+           (list :timestamp-type (intern (downcase it))
+                 :timestamp-string org-timestamp
+                 :time (org-wild-notifier--timestamp-parse org-timestamp))))
     (org-wild-notifier--get-entries-for-marker marker))))
 
 (defun org-wild-notifier--extract-title (marker)
@@ -567,7 +586,8 @@ in the WILD_NOTIFIER_NOTIFY_AT property."
 (defun org-wild-notifier--gather-info (marker)
   "Collect information about an event.
 MARKER acts like event's identifier."
-  `((times . (,(org-wild-notifier--extract-time marker)))
+  `((marker . ,marker)
+    (times . (,(org-wild-notifier--extract-time marker)))
     (title . ,(org-wild-notifier--extract-title marker))
     (intervals . ,(org-wild-notifier--extract-notication-intervals marker))
     (notify-at . ,(org-wild-notifier--extract-notify-at-times marker))))
@@ -670,33 +690,51 @@ TIME is a string in HH:MM format or any format accepted by `org-read-date'."
 
 (defun org-wild-notifier--get-notifications-for-event (event)
   "Get all notifications for EVENT.
-Returns a list of notification plists with :notify-at, :event-time, :minutes-before, :type."
+Returns a list of notification plists, each containing:
+  :notify-at - Emacs time when notification should fire
+  :event-time - Emacs time of the event (nil for absolute notifications)
+  :event-time-string - Original timestamp string
+  :timestamp-type - Symbol: deadline, scheduled, or timestamp (nil for absolute)
+  :minutes-before - Minutes before event (nil for absolute notifications)
+  :type - Symbol: relative or absolute
+  :title - Event title string
+  :marker - Org marker for navigation/queries
+  :event - The full event alist"
   (let ((notifications nil)
+        (marker (cdr (assoc 'marker event)))
         (title (cdr (assoc 'title event)))
         (times (cadr (assoc 'times event)))
         (intervals (cdr (assoc 'intervals event)))
         (notify-at-times (cdr (assoc 'notify-at event))))
     ;; Check relative notifications (intervals before event times)
-    (dolist (time-pair times)
-      (when (org-wild-notifier--has-timestamp (car time-pair))
-        (let ((event-time (cdr time-pair)))
+    (dolist (time-info times)
+      (let ((timestamp-string (plist-get time-info :timestamp-string))
+            (event-time (plist-get time-info :time))
+            (timestamp-type (plist-get time-info :timestamp-type)))
+        (when (org-wild-notifier--has-timestamp timestamp-string)
           (dolist (interval intervals)
             (let ((notify-time (time-subtract event-time (seconds-to-time (* 60 interval)))))
               (push (list :notify-at notify-time
                           :event-time event-time
-                          :event-time-string (car time-pair)
+                          :event-time-string timestamp-string
+                          :timestamp-type timestamp-type
                           :minutes-before interval
                           :type 'relative
-                          :title title)
+                          :title title
+                          :marker marker
+                          :event event)
                     notifications))))))
     ;; Check absolute notifications (notify-at times)
     (dolist (notify-time notify-at-times)
       (push (list :notify-at notify-time
                   :event-time nil
                   :event-time-string nil
+                  :timestamp-type nil
                   :minutes-before nil
                   :type 'absolute
-                  :title title)
+                  :title title
+                  :marker marker
+                  :event event)
             notifications))
     (nreverse notifications)))
 
