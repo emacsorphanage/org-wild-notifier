@@ -1112,3 +1112,128 @@ minutes)"
         ;; Verify notification time is 16:00
         (let ((notify-at (plist-get (car result) :notify-at)))
           (should (equal (format-time-string "%H:%M" notify-at) "16:00")))))))
+
+;;; Tests for day-wide notifications in the new API
+
+(ert-deftest notifications-for-event-includes-day-wide ()
+  "Tests that --get-notifications-for-event includes day-wide notifications."
+  (cl-letf* ((time-string "January 4, 2018 14:59")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-wild-notifier-day-wide-alert-times '("09:00" "14:59"))
+             (org-wild-notifier-show-any-overdue-with-day-wide-alerts t))
+    (let* ((now (current-time))
+           ;; Day-wide event (no time component) that has passed
+           (event-time (time-subtract now 3600))  ; 1 hour ago
+           (event `((times . (((:timestamp-type scheduled
+                                 :timestamp-string "<2018-01-04 Thu>"
+                                 :time ,event-time))))
+                    (title . "Day wide event")
+                    (intervals . (10))
+                    (notify-at . nil))))
+      (let ((result (org-wild-notifier--get-notifications-for-event event)))
+        ;; Should have day-wide notifications for each configured time
+        (should (= (length result) 2))
+        ;; All should be day-wide type
+        (should (--all? (eq (plist-get it :type) 'day-wide) result))))))
+
+(ert-deftest notifications-for-event-day-wide-with-overdue ()
+  "Tests that overdue events get day-wide notifications when configured."
+  (cl-letf* ((time-string "January 4, 2018 15:00")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-wild-notifier-day-wide-alert-times '("15:00"))
+             (org-wild-notifier-show-any-overdue-with-day-wide-alerts t))
+    (let* ((now (current-time))
+           ;; Event with specific time that has passed (overdue)
+           (event-time (time-subtract now 3600))  ; 1 hour ago
+           (event `((times . (((:timestamp-type scheduled
+                                 :timestamp-string "<2018-01-04 Thu 14:00>"
+                                 :time ,event-time))))
+                    (title . "Overdue event")
+                    (intervals . (10))
+                    (notify-at . nil))))
+      (let ((result (org-wild-notifier--get-notifications-for-event event)))
+        ;; Should have 1 relative notification + 1 day-wide notification
+        (should (= (length result) 2))
+        (should (--any? (eq (plist-get it :type) 'relative) result))
+        (should (--any? (eq (plist-get it :type) 'day-wide) result))))))
+
+(ert-deftest notifications-for-event-no-day-wide-when-disabled ()
+  "Tests that day-wide notifications are not included when feature is disabled."
+  (cl-letf* ((time-string "January 4, 2018 15:00")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-wild-notifier-day-wide-alert-times nil)  ; Disabled
+             (org-wild-notifier-show-any-overdue-with-day-wide-alerts t))
+    (let* ((now (current-time))
+           (event-time (time-subtract now 3600))
+           (event `((times . (((:timestamp-type scheduled
+                                 :timestamp-string "<2018-01-04 Thu>"
+                                 :time ,event-time))))
+                    (title . "Day wide event")
+                    (intervals . (10))
+                    (notify-at . nil))))
+      (let ((result (org-wild-notifier--get-notifications-for-event event)))
+        ;; Should have no notifications (day-wide timestamp filtered, no relative)
+        (should (= (length result) 0))))))
+
+(ert-deftest format-notification-day-wide-type ()
+  "Tests that day-wide notifications are formatted correctly."
+  (let ((notification (list :type 'day-wide
+                            :title "Test event"
+                            :notify-at (current-time)
+                            :event-time nil
+                            :event-time-string nil
+                            :minutes-before nil)))
+    (should (equal (org-wild-notifier--format-notification notification)
+                   "Test event is due or scheduled today"))))
+
+(ert-deftest get-notifications-for-marker-basic ()
+  "Tests that get-notifications-for-marker returns notifications for a marker."
+  (cl-letf* ((time-string "January 4, 2018 15:50")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-wild-notifier-alert-time '(10))
+             (org-wild-notifier-day-wide-alert-times nil))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* TODO Test heading\n")
+      (insert "  SCHEDULED: <2018-01-04 Thu 16:00>\n")
+      (goto-char (point-min))
+      (let* ((marker (point-marker))
+             (result (org-wild-notifier-get-notifications-for-marker marker)))
+        ;; Should have 1 notification (10 min before)
+        (should (= (length result) 1))
+        (should (eq (plist-get (car result) :type) 'relative))
+        (should (equal (plist-get (car result) :minutes-before) 10))
+        (should (equal (plist-get (car result) :title) "Test heading"))))))
+
+(ert-deftest get-upcoming-notifications-includes-day-wide ()
+  "Integration test: get-upcoming-notifications includes day-wide notifications."
+  (cl-letf* ((org-agenda-files (list (expand-file-name "planning.org" "fixtures")))
+             (org-todo-keywords (list "TODO" "IN PROGRESS" "DONE"))
+             (time-string "January 4, 2018 14:59")
+             ((symbol-function 'current-time)
+              (lambda () (apply 'encode-time (parse-time-string time-string))))
+             (org-agenda-start-day (time-to-days (current-time)))
+             ((symbol-function 'org-today)
+              (lambda () (time-to-days (current-time))))
+             (org-wild-notifier-keyword-whitelist '("TODO"))
+             (org-wild-notifier-keyword-blacklist nil)
+             (org-wild-notifier-tags-whitelist nil)
+             (org-wild-notifier-tags-blacklist nil)
+             (org-wild-notifier-predicate-whitelist nil)
+             (org-wild-notifier-predicate-blacklist '(org-wild-notifier-done-keywords-predicate))
+             (org-wild-notifier-day-wide-alert-times '("14:59"))
+             (org-wild-notifier-show-any-overdue-with-day-wide-alerts t))
+    (let ((result (org-wild-notifier-get-upcoming-notifications)))
+      ;; Should have notifications including day-wide ones
+      (should (> (length result) 0))
+      ;; Check that we have day-wide notifications
+      (should (--any? (eq (plist-get it :type) 'day-wide) result))
+      ;; All results should have required keys
+      (--each result
+        (should (plist-get it :notify-at))
+        (should (plist-get it :title))
+        (should (plist-get it :type))))))

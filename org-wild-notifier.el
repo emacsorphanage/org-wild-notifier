@@ -297,6 +297,14 @@ TIMES is a list of time plists with :timestamp-string."
   (--any (org-wild-notifier-current-time-matches-time-of-day-string it)
          org-wild-notifier-day-wide-alert-times))
 
+(defun org-wild-notifier--day-wide-alert-times-for-today ()
+  "Get Emacs time values for all day-wide alert times for today."
+  (let ((now (current-time)))
+    (--map (apply 'org-wild-notifier-set-hours-minutes-for-time
+                  now
+                  (org-wild-notifier-get-hours-minutes-from-time it))
+           org-wild-notifier-day-wide-alert-times)))
+
 (defun org-wild-notifier-day-wide-notifications (events)
   (->> events
        (-filter 'org-wild-notifier-display-as-day-wide-event)
@@ -334,12 +342,13 @@ TIMES is a list of time plists with :timestamp-string."
         (title (plist-get notification :title))
         (event-time-string (plist-get notification :event-time-string))
         (minutes-before (plist-get notification :minutes-before)))
-    (if (eq type 'absolute)
-        (format "%s (scheduled reminder)" title)
-      (format "%s at %s (%s)"
-              title
-              (org-wild-notifier--get-hh-mm-from-org-time-string event-time-string)
-              (org-wild-notifier--time-left (* 60 minutes-before))))))
+    (pcase type
+      ('absolute (format "%s (scheduled reminder)" title))
+      ('day-wide (format "%s is due or scheduled today" title))
+      (_ (format "%s at %s (%s)"
+                 title
+                 (org-wild-notifier--get-hh-mm-from-org-time-string event-time-string)
+                 (org-wild-notifier--time-left (* 60 minutes-before)))))))
 
 (defun org-wild-notifier--check-notify-at (event)
   "Check if any absolute notification times in EVENT match now.
@@ -618,9 +627,6 @@ smoother experience this function also runs a check without timer."
            (-flatten)
            (-uniq))
     'org-wild-notifier--notify)
-  (when (org-wild-notifier-current-time-is-day-wide-time)
-    (-each (org-wild-notifier-day-wide-notifications events)
-      #'org-wild-notifier--notify))
   (setq org-wild-notifier--last-check-time (current-time)))
 
 ;;;###autoload
@@ -692,11 +698,11 @@ TIME is a string in HH:MM format or any format accepted by `org-read-date'."
   "Get all notifications for EVENT.
 Returns a list of notification plists, each containing:
   :notify-at - Emacs time when notification should fire
-  :event-time - Emacs time of the event (nil for absolute notifications)
-  :event-time-string - Original timestamp string
-  :timestamp-type - Symbol: deadline, scheduled, or timestamp (nil for absolute)
-  :minutes-before - Minutes before event (nil for absolute notifications)
-  :type - Symbol: relative or absolute
+  :event-time - Emacs time of the event (nil for absolute/day-wide notifications)
+  :event-time-string - Original timestamp string (nil for absolute/day-wide)
+  :timestamp-type - Symbol: deadline, scheduled, or timestamp (nil for absolute/day-wide)
+  :minutes-before - Minutes before event (nil for absolute/day-wide notifications)
+  :type - Symbol: relative, absolute, or day-wide
   :title - Event title string
   :marker - Org marker for navigation/queries
   :event - The full event alist"
@@ -736,6 +742,19 @@ Returns a list of notification plists, each containing:
                   :marker marker
                   :event event)
             notifications))
+    ;; Check day-wide notifications (overdue or day-wide events at configured times)
+    (when (org-wild-notifier-display-as-day-wide-event event)
+      (dolist (notify-time (org-wild-notifier--day-wide-alert-times-for-today))
+        (push (list :notify-at notify-time
+                    :event-time nil
+                    :event-time-string nil
+                    :timestamp-type nil
+                    :minutes-before nil
+                    :type 'day-wide
+                    :title title
+                    :marker marker
+                    :event event)
+              notifications)))
     (nreverse notifications)))
 
 (defun org-wild-notifier--gather-events-sync ()
@@ -760,15 +779,34 @@ Returns a list of event alists suitable for notification processing."
     events))
 
 ;;;###autoload
+(defun org-wild-notifier-get-notifications-for-marker (marker)
+  "Get all notifications for the org entry at MARKER.
+Returns a list of notification plists, each containing:
+  :notify-at - Emacs time when notification should fire
+  :event-time - Emacs time of the event (nil for absolute/day-wide notifications)
+  :event-time-string - Original timestamp string (nil for absolute/day-wide)
+  :timestamp-type - Symbol: deadline, scheduled, or timestamp (nil for absolute/day-wide)
+  :minutes-before - Minutes before event (nil for absolute/day-wide notifications)
+  :type - Symbol: relative, absolute, or day-wide
+  :title - Event title string
+  :marker - Org marker for navigation/queries
+  :event - The full event alist"
+  (let ((event (org-wild-notifier--gather-info marker)))
+    (org-wild-notifier--get-notifications-for-event event)))
+
+;;;###autoload
 (defun org-wild-notifier-get-upcoming-notifications ()
   "Get all notifications for upcoming events.
 Returns a list of notification plists, each containing:
   :notify-at - Emacs time when notification should fire
-  :event-time - Emacs time of the event (nil for absolute notifications)
-  :event-time-string - Original timestamp string
-  :minutes-before - Minutes before event (nil for absolute notifications)
-  :type - Symbol 'relative or 'absolute
-  :title - Event title"
+  :event-time - Emacs time of the event (nil for absolute/day-wide notifications)
+  :event-time-string - Original timestamp string (nil for absolute/day-wide)
+  :timestamp-type - Symbol: deadline, scheduled, or timestamp (nil for absolute/day-wide)
+  :minutes-before - Minutes before event (nil for absolute/day-wide notifications)
+  :type - Symbol: relative, absolute, or day-wide
+  :title - Event title string
+  :marker - Org marker for navigation/queries
+  :event - The full event alist"
   (let* ((events (org-wild-notifier--gather-events-sync))
          (all-notifications nil))
     (dolist (event events)
