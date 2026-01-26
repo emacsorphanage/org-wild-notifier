@@ -52,7 +52,7 @@
 (require 'cl-lib)
 
 (defgroup org-wild-notifier nil
-  "org-wild-notifier customization options"
+  "Customization options for org-wild-notifier."
   :group 'org)
 
 (defcustom org-wild-notifier-alert-time '(10)
@@ -143,16 +143,15 @@ Value should be space-separated timestamp types, e.g., \"DEADLINE SCHEDULED\"."
 (defcustom org-wild-notifier-predicate-whitelist nil
   "Receive notifications for events matching these predicates only.
 Each function should take an event POM and return non-nil iff that event should
-trigger a notification. Leave this variable blank if you do not want to filter
+trigger a notification.  Leave this variable blank if you do not want to filter
 anything."
   :package-version '(org-wild-notifier . "0.5.0")
   :group 'org-wild-notifier
   :type '(function))
 
 (defcustom org-wild-notifier-additional-environment-regexes nil
-  "Additional regular expressions that should be provided to
-`async-inject-environment' before running the async command to
-check notifications."
+  "Additional regular expressions for `async-inject-environment'.
+These are passed to the async command when checking notifications."
   :package-version '(org-wild-notifier . "0.5.0")
   :group 'org-wild-notifier
   :type '(string))
@@ -242,6 +241,7 @@ DEPRECATED: Use `org-wild-notifier--get-current-notifications' instead."
   (org-wild-notifier--get-current-notifications event))
 
 (defun org-wild-notifier--has-timestamp (s)
+  "Check whether S has a time component in its timestamp."
   (string-match org-ts-regexp0 s)
   (match-beginning 7))
 
@@ -274,18 +274,22 @@ TIMES is a list of time plists with :timestamp-string."
           (org-wild-notifier--time-left (* 60 (cdr str-interval)))))
 
 (defun org-wild-notifier-get-minutes-into-day (time)
+  "Return the number of minutes from midnight for TIME string."
   (org-duration-to-minutes (org-get-time-of-day time t)))
 
 (defun org-wild-notifier-get-hours-minutes-from-time (time-string)
+  "Parse TIME-STRING and return a list of (hours minutes)."
   (let ((total-minutes (truncate (org-wild-notifier-get-minutes-into-day time-string))))
     (list (/ total-minutes 60)
           (mod total-minutes 60))))
 
 (defun org-wild-notifier-set-hours-minutes-for-time (time hours minutes)
+  "Return TIME with HOURS and MINUTES set, preserving the date."
   (cl-destructuring-bind (_s _m _h day month year dow dst utcoff) (decode-time time)
     (encode-time 0 minutes hours day month year dow dst utcoff)))
 
 (defun org-wild-notifier-current-time-matches-time-of-day-string (time-of-day-string)
+  "Return non-nil if current time matches TIME-OF-DAY-STRING."
   (let ((now (current-time)))
     (org-wild-notifier--time=
      now
@@ -294,6 +298,7 @@ TIMES is a list of time plists with :timestamp-string."
             (org-wild-notifier-get-hours-minutes-from-time time-of-day-string)))))
 
 (defun org-wild-notifier-current-time-is-day-wide-time ()
+  "Return non-nil if current time matches any day-wide alert time."
   (--any (org-wild-notifier-current-time-matches-time-of-day-string it)
          org-wild-notifier-day-wide-alert-times))
 
@@ -306,17 +311,17 @@ TIMES is a list of time plists with :timestamp-string."
            org-wild-notifier-day-wide-alert-times)))
 
 (defun org-wild-notifier-day-wide-notifications (events)
+  "Return unique day-wide notification texts for EVENTS."
   (->> events
        (-filter 'org-wild-notifier-display-as-day-wide-event)
        (-map 'org-wild-notifier--day-wide-notification-text)
        (-uniq)))
 
 (defun org-wild-notifier-display-as-day-wide-event (event)
-  ;; `org-wild-notifier-event-has-any-passed-time' event is a requirement,
-  ;; regardless of whether
-  ;; `org-wild-notifier-show-any-overdue-with-day-wide-alerts' is set because
-  ;; the events list can include events scheduled tomorrow. We only want to
-  ;; alert for things scheduled today.
+  "Return non-nil if EVENT should display as a day-wide event.
+`org-wild-notifier-event-has-any-passed-time' is required regardless of
+`org-wild-notifier-show-any-overdue-with-day-wide-alerts' because the events
+list can include events scheduled tomorrow.  We only alert for today."
   (and (org-wild-notifier-event-has-any-passed-time event)
       (or org-wild-notifier-show-any-overdue-with-day-wide-alerts
            (org-wild-notifier-event-has-any-day-wide-timestamp event))))
@@ -370,6 +375,7 @@ Returns a list of notification messages."
       (org-split-string  ":")))
 
 (defun org-wild-notifier--whitelist-predicates ()
+  "Return a list of predicate functions for whitelist filtering."
   (->> `([,org-wild-notifier-keyword-whitelist
           (lambda (it)
             (-contains-p org-wild-notifier-keyword-whitelist
@@ -387,6 +393,7 @@ Returns a list of notification messages."
        (--map (aref it 1))))
 
 (defun org-wild-notifier--blacklist-predicates ()
+  "Return a list of predicate functions for blacklist filtering."
   (->> `([,org-wild-notifier-keyword-blacklist
           (lambda (it)
             (-contains-p org-wild-notifier-keyword-blacklist
@@ -446,6 +453,7 @@ Returns a list of notification messages."
 
 
 (defun org-wild-notifier-environment-regex ()
+  "Return a regex matching all environment variables to inject."
   (macroexpand
    `(rx (or
          ,@(mapcar (lambda (regexp) (list 'regexp regexp))
@@ -602,7 +610,7 @@ MARKER acts like event's identifier."
     (notify-at . ,(org-wild-notifier--extract-notify-at-times marker))))
 
 (defun org-wild-notifier--stop ()
-  "Stops the notification timer and cancel any in-progress checks."
+  "Stop the notification timer and cancel any in-progress check."
   (-some-> org-wild-notifier--timer (cancel-timer))
   (when org-wild-notifier--process
     (interrupt-process org-wild-notifier--process)
@@ -620,6 +628,7 @@ smoother experience this function also runs a check without timer."
        (setf org-wild-notifier--timer it)))
 
 (defun org-wild-notifier--check-events (events)
+  "Process EVENTS and send notifications for those due now."
   (setq org-wild-notifier--process nil)
   (-each
       (->> events
@@ -698,10 +707,10 @@ TIME is a string in HH:MM format or any format accepted by `org-read-date'."
   "Get all notifications for EVENT.
 Returns a list of notification plists, each containing:
   :notify-at - Emacs time when notification should fire
-  :event-time - Emacs time of the event (nil for absolute/day-wide notifications)
+  :event-time - Emacs time of the event (nil for absolute/day-wide)
   :event-time-string - Original timestamp string (nil for absolute/day-wide)
-  :timestamp-type - Symbol: deadline, scheduled, or timestamp (nil for absolute/day-wide)
-  :minutes-before - Minutes before event (nil for absolute/day-wide notifications)
+  :timestamp-type - deadline, scheduled, or timestamp (nil for abs/day-wide)
+  :minutes-before - Minutes before event (nil for absolute/day-wide)
   :type - Symbol: relative, absolute, or day-wide
   :title - Event title string
   :marker - Org marker for navigation/queries
@@ -783,10 +792,10 @@ Returns a list of event alists suitable for notification processing."
   "Get all notifications for the org entry at MARKER.
 Returns a list of notification plists, each containing:
   :notify-at - Emacs time when notification should fire
-  :event-time - Emacs time of the event (nil for absolute/day-wide notifications)
+  :event-time - Emacs time of the event (nil for absolute/day-wide)
   :event-time-string - Original timestamp string (nil for absolute/day-wide)
-  :timestamp-type - Symbol: deadline, scheduled, or timestamp (nil for absolute/day-wide)
-  :minutes-before - Minutes before event (nil for absolute/day-wide notifications)
+  :timestamp-type - deadline, scheduled, or timestamp (nil for abs/day-wide)
+  :minutes-before - Minutes before event (nil for absolute/day-wide)
   :type - Symbol: relative, absolute, or day-wide
   :title - Event title string
   :marker - Org marker for navigation/queries
@@ -799,10 +808,10 @@ Returns a list of notification plists, each containing:
   "Get all notifications for upcoming events.
 Returns a list of notification plists, each containing:
   :notify-at - Emacs time when notification should fire
-  :event-time - Emacs time of the event (nil for absolute/day-wide notifications)
+  :event-time - Emacs time of the event (nil for absolute/day-wide)
   :event-time-string - Original timestamp string (nil for absolute/day-wide)
-  :timestamp-type - Symbol: deadline, scheduled, or timestamp (nil for absolute/day-wide)
-  :minutes-before - Minutes before event (nil for absolute/day-wide notifications)
+  :timestamp-type - deadline, scheduled, or timestamp (nil for abs/day-wide)
+  :minutes-before - Minutes before event (nil for absolute/day-wide)
   :type - Symbol: relative, absolute, or day-wide
   :title - Event title string
   :marker - Org marker for navigation/queries
