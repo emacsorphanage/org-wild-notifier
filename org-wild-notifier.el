@@ -180,16 +180,20 @@ Options: high, medium, low."
   :type 'plist)
 
 (defcustom org-wild-notifier-day-wide-alert-times nil
-  "List of time strings when alerts for day-wide events should trigger."
+  "List of time strings when alerts for day-wide events should trigger.
+Each string should be in HH:MM format (e.g., \"09:00\", \"14:30\").
+Day-wide events (those without a specific time) will trigger notifications
+at each of these times."
   :package-version '(org-wild-notifier . "0.5.0")
   :group 'org-wild-notifier
-  :type 'string)
+  :type '(repeat string))
 
 (defcustom org-wild-notifier-show-any-overdue-with-day-wide-alerts t
-  "Show any overdue TODO items along with day wide alerts whenever they are shown."
+  "Show any overdue TODO items along with day-wide alerts.
+When non-nil, overdue items are included in day-wide alert notifications."
   :package-version '(org-wild-notifier . "0.5.0")
   :group 'org-wild-notifier
-  :type 'string)
+  :type 'boolean)
 
 (defvar org-wild-notifier--timer nil
   "Timer value.")
@@ -202,6 +206,18 @@ Options: high, medium, low."
 
 (defvar org-wild-notifier--last-check-time (seconds-to-time 0)
   "Last time checked for events.")
+
+(defvar org-wild-notifier-current-time nil
+  "Override for current time used in notification calculations.
+When non-nil, this value is used instead of `current-time'.
+This allows testing notifications at different times or adjusting
+for timezone differences.  Should be a time value as returned by
+`current-time' or `encode-time'.")
+
+(defun org-wild-notifier--now ()
+  "Return the current time for notification calculations.
+Uses `org-wild-notifier-current-time' if set, otherwise `current-time'."
+  (or org-wild-notifier-current-time (current-time)))
 
 (defun org-wild-notifier--time= (&rest list)
   "Compare timestamps.
@@ -216,17 +232,17 @@ in order to ignore seconds."
 (defun org-wild-notifier--today ()
   "Get the timestamp for the beginning of current day."
   (apply 'encode-time
-         (append '(0 0 0) (nthcdr 3 (decode-time (current-time))))))
+         (append '(0 0 0) (nthcdr 3 (decode-time (org-wild-notifier--now))))))
 
 (defun org-wild-notifier--timestamp-within-interval-p (timestamp interval)
   "Check whether TIMESTAMP is within notification INTERVAL."
   (org-wild-notifier--time=
-   (time-add (current-time) (seconds-to-time (* 60 interval)))
+   (time-add (org-wild-notifier--now) (seconds-to-time (* 60 interval)))
    timestamp))
 
 (defun org-wild-notifier--notification-due-now-p (notification)
   "Return non-nil if NOTIFICATION should fire at the current minute."
-  (org-wild-notifier--time= (plist-get notification :notify-at) (current-time)))
+  (org-wild-notifier--time= (plist-get notification :notify-at) (org-wild-notifier--now)))
 
 (defun org-wild-notifier--get-current-notifications (event)
   "Get notifications for EVENT that are due at the current minute.
@@ -290,7 +306,7 @@ TIMES is a list of time plists with :timestamp-string."
 
 (defun org-wild-notifier-current-time-matches-time-of-day-string (time-of-day-string)
   "Return non-nil if current time matches TIME-OF-DAY-STRING."
-  (let ((now (current-time)))
+  (let ((now (org-wild-notifier--now)))
     (org-wild-notifier--time=
      now
      (apply 'org-wild-notifier-set-hours-minutes-for-time
@@ -304,7 +320,7 @@ TIMES is a list of time plists with :timestamp-string."
 
 (defun org-wild-notifier--day-wide-alert-times-for-today ()
   "Get Emacs time values for all day-wide alert times for today."
-  (let ((now (current-time)))
+  (let ((now (org-wild-notifier--now)))
     (--map (apply 'org-wild-notifier-set-hours-minutes-for-time
                   now
                   (org-wild-notifier-get-hours-minutes-from-time it))
@@ -333,7 +349,7 @@ list can include events scheduled tomorrow.  We only alert for today."
 
 (defun org-wild-notifier-event-has-any-passed-time (event)
   "Return non-nil if EVENT has any timestamp that has already passed."
-  (--any (time-less-p (plist-get it :time) (current-time))
+  (--any (time-less-p (plist-get it :time) (org-wild-notifier--now))
          (cadr (assoc 'times event))))
 
 (defun org-wild-notifier--day-wide-notification-text (event)
@@ -561,13 +577,13 @@ rather than the real system time."
                                  (decoded-time-day parsed)
                                  (decoded-time-month parsed)
                                  (decoded-time-year parsed))))
-    ;; Handle repeating timestamps by finding the closest occurrence to current-time
+    ;; Handle repeating timestamps by finding the closest occurrence to now
     (if (string-match "\\+[0-9]+[dwmy]" timestamp)
-        ;; Repeating timestamp - find closest occurrence to (current-time)
+        ;; Repeating timestamp - find closest occurrence to now
         (let* ((repeat-match (match-string 0 timestamp))
                (repeat-num (string-to-number (substring repeat-match 1 -1)))
                (repeat-unit (substring repeat-match -1))
-               (current (current-time))
+               (current (org-wild-notifier--now))
                (candidate base-time))
           ;; Advance candidate until it's >= current-time or close to it
           (while (time-less-p candidate current)
@@ -804,8 +820,10 @@ Returns a list of notification plists, each containing:
     (org-wild-notifier--get-notifications-for-event event)))
 
 ;;;###autoload
-(defun org-wild-notifier-get-upcoming-notifications ()
+(defun org-wild-notifier-get-upcoming-notifications (&optional now)
   "Get all notifications for upcoming events.
+If NOW is provided, use it as the current time for calculations.
+This allows querying notifications as if it were a different time.
 Returns a list of notification plists, each containing:
   :notify-at - Emacs time when notification should fire
   :event-time - Emacs time of the event (nil for absolute/day-wide)
@@ -816,7 +834,8 @@ Returns a list of notification plists, each containing:
   :title - Event title string
   :marker - Org marker for navigation/queries
   :event - The full event alist"
-  (let* ((events (org-wild-notifier--gather-events-sync))
+  (let* ((org-wild-notifier-current-time now)
+         (events (org-wild-notifier--gather-events-sync))
          (all-notifications nil))
     (dolist (event events)
       (let ((event-notifications
