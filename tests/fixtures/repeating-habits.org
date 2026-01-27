@@ -1,21 +1,9 @@
 * Repeating habits
 ** TODO Daily habit at 10:00
    SCHEDULED: <2018-01-04 Thu 10:00 +1d>
-   :PROPERTIES:
-   :ID:       deb9776e-44f0-40be-b753-2d3178093187
-   :END:
 ** TODO Daily habit without time
    SCHEDULED: <2018-01-04 Thu +1d>
-   :PROPERTIES:
-   :ID:       b0c1636e-2a9a-4bd2-839c-4426152a8981
-   :END:
 ** TODO Bi-daily habit at 14:00
    SCHEDULED: <2018-01-04 Thu 14:00 +2d>
-   :PROPERTIES:
-   :ID:       360a99f1-4300-482c-aa14-525c43c0bd6f
-   :END:
 ** TODO Non-repeating event at 16:00
    SCHEDULED: <2018-01-04 Thu 16:00>
-   :PROPERTIES:
-   :ID:       aff7a3b2-508a-47bf-a392-d543b224a739
-   :END:

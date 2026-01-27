@@ -195,15 +195,6 @@ When non-nil, overdue items are included in day-wide alert notifications."
   :group 'org-wild-notifier
   :type 'boolean)
 
-(defcustom org-wild-notifier-auto-add-org-id t
-  "Automatically add org-id to entries that don't have one.
-When non-nil (the default), entries without an ID property will
-automatically have one generated and saved when they are processed
-for notifications. This provides stable identifiers for API consumers."
-  :package-version '(org-wild-notifier . "0.8.0")
-  :group 'org-wild-notifier
-  :type 'boolean)
-
 (defvar org-wild-notifier--timer nil
   "Timer value.")
 
@@ -615,26 +606,14 @@ in the WILD_NOTIFIER_NOTIFY_AT property."
 
 (defun org-wild-notifier--extract-marker-location (marker)
   "Extract file, position, and ID from MARKER.
-Returns an alist with file, pos, and optionally id.
-When `org-wild-notifier-auto-add-org-id' is non-nil, creates and
-saves an ID for entries that don't have one."
+Returns an alist with file, pos, and optionally id."
   (when (and marker (marker-buffer marker))
     (with-current-buffer (marker-buffer marker)
       (save-excursion
         (goto-char (marker-position marker))
-        (let* ((file (buffer-file-name))
-               (pos (marker-position marker))
-               ;; Only auto-create ID if we're in a file-visiting buffer
-               ;; org-id-get-create requires a file-visiting buffer
-               (id (if (and org-wild-notifier-auto-add-org-id file)
-                       (org-id-get-create)
-                     (org-entry-get nil "ID"))))
-          ;; Save buffer if we created a new ID
-          (when (and org-wild-notifier-auto-add-org-id
-                     file
-                     id
-                     (buffer-modified-p))
-            (save-buffer))
+        (let ((file (buffer-file-name))
+              (pos (marker-position marker))
+              (id (org-entry-get nil "ID")))
           `((file . ,file)
             (pos . ,pos)
             ,@(when id `((id . ,id)))))))))

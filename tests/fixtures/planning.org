@@ -1,117 +1,70 @@
 * Wild notifier
 ** TODO TODO event at 15:00
    SCHEDULED: <2018-01-04 Thu 15:00>
-   :PROPERTIES:
-   :ID:       8041fab8-4e31-4bdc-8344-02ffe9ac54db
-   :END:
 ** DONE DONE event at 16:00
    SCHEDULED: <2018-01-04 Thu 16:00>
-   :PROPERTIES:
-   :ID:       666f2902-0dfb-4422-b6f9-a8283c15fb6e
-   :END:
 ** IN PROGRESS IN PROGRESS event at 16:00
    SCHEDULED: <2018-01-04 Wed 16:00>
-   :PROPERTIES:
-   :ID:       5e696769-111b-4b94-aeb3-54e82714e2c2
-   :END:
 ** Plain event at 16:00
    SCHEDULED: <2018-01-04 Wed 16:00>
-   :PROPERTIES:
-   :ID:       f1ffe76b-5792-4f1a-9c47-9830613f7cbf
-   :END:
 ** Tagged event at 16:00                                        :foo:bar:baz:
    SCHEDULED: <2018-01-04 Wed 16:00>
-   :PROPERTIES:
-   :ID:       7c22af8b-fca1-44e4-ad16-327b35843752
-   :END:
 ** TODO event with raw date at 16:00                                    :baz:
-:PROPERTIES:
-:ID:       b59bc1bf-56d4-4a3f-97de-f205a1feb3c0
-:END:
    <2018-01-04 Wed 16:00>
 ** event without a keyword at 19:35
-:PROPERTIES:
-:ID:       6d02f01e-d21c-429d-b52f-f12832f82892
-:END:
    <2018-01-04 Wed 19:35>
 ** TODO TODO event scheduled on 16:00 with deadline at 17:00
    DEADLINE: <2018-01-04 Thu 17:00> SCHEDULED: <2018-01-04 Thu 16:00>
-   :PROPERTIES:
-   :ID:       fe861541-a644-46a9-927f-a887e5022d54
-   :END:
 ** TODO TODO event at 16:00 with notifications before 80, 60, 55, 43 and 5
    SCHEDULED: <2018-01-04 Thu 16:00>
    :PROPERTIES:
    :WILD_NOTIFIER_NOTIFY_BEFORE: 80 60 55 43 5
-   :ID:       f1f6a04a-4916-4b4b-b492-1a2a8ccc6b52
    :END:
 ** TODO TODO event at 16:00 with NOTIFY_BEFORE property set to 31
    SCHEDULED: <2018-01-04 Thu 16:00>
    :PROPERTIES:
    :NOTIFY_BEFORE: 31
-   :ID:       074985fa-efa7-4cbb-a431-9cf400dbfe81
    :END:
 ** TODO TODO event scheduled on today
    SCHEDULED: <2018-01-04 Thu>
-   :PROPERTIES:
-   :ID:       bcd98f42-a592-4c2e-b709-501117fff4b5
-   :END:
 ** TODO TODO event scheduled on today's noon
    SCHEDULED: <2018-01-04 Thu 00:00>
-   :PROPERTIES:
-   :ID:       8c0d6126-4ced-4a11-b6f6-a6e3cdd480aa
-   :END:
 ** TODO TODO event scheduled on tomorrow
    SCHEDULED: <2018-01-05 Fri>
-   :PROPERTIES:
-   :ID:       c491241b-8dde-414f-b949-21aec9215276
-   :END:
 ** TODO TODO event scheduled on tomorrow at midnight
    SCHEDULED: <2018-01-05 Fri 00:00>
-   :PROPERTIES:
-   :ID:       c20f4d1b-1a75-4119-b2c3-1927416b91c3
-   :END:
 ** TODO TODO event with absolute notification time
    SCHEDULED: <2018-01-04 Thu 18:00>
    :PROPERTIES:
    :WILD_NOTIFIER_NOTIFY_AT: <2018-01-04 Thu 14:30>
-   :ID:       6e550c63-8a0e-4226-8d55-ca2cad7e48e2
    :END:
 ** TODO TODO event with multiple absolute notification times
    SCHEDULED: <2018-01-04 Thu 20:00>
    :PROPERTIES:
    :WILD_NOTIFIER_NOTIFY_AT: <2018-01-04 Thu 15:00> <2018-01-04 Thu 15:30>
-   :ID:       eb4c6b3a-5d0b-4620-b110-c0dbea9b6b9b
    :END:
 ** TODO TODO event with repeating absolute notification
    SCHEDULED: <2018-01-08 Mon 10:00>
    :PROPERTIES:
    :WILD_NOTIFIER_NOTIFY_AT: <2018-01-04 Thu 16:00 +1d>
-   :ID:       3c370db3-700f-4df7-a684-2cf33d056f73
    :END:
 ** TODO TODO event with all notification types
    SCHEDULED: <2018-01-04 Thu 18:00>
    :PROPERTIES:
    :WILD_NOTIFIER_NOTIFY_AT: <2018-01-04 Thu 14:30>
    :WILD_NOTIFIER_NOTIFY_BEFORE: 45
-   :ID:       55da68e2-29c0-4d13-9d1a-7cc32a53aaa7
    :END:
 ** TODO TODO event with deadline only at 21:00
    DEADLINE: <2018-01-04 Thu 21:00>
-   :PROPERTIES:
-   :ID:       31627ac7-53ae-44b7-87a7-5ecb7984267c
-   :END:
 ** TODO TODO event with scheduled and deadline at 21:10
    DEADLINE: <2018-01-04 Thu 21:10> SCHEDULED: <2018-01-04 Thu 21:10>
    :PROPERTIES:
    :WILD_NOTIFIER_ENTRIES: DEADLINE
-   :ID:       cca93b4c-e09d-4080-9730-e30a2bed4d67
    :END:
 ** TODO TODO event with entries override to SCHEDULED at 21:20
    DEADLINE: <2018-01-04 Thu 21:20> SCHEDULED: <2018-01-04 Thu 21:20>
    :PROPERTIES:
    :WILD_NOTIFIER_ENTRIES: SCHEDULED
-   :ID:       cf7093cb-b1b0-48f1-9b70-482a9699fbfb
    :END:
 * Entries override section                                          :entries:
   :PROPERTIES:
@@ -119,6 +72,3 @@
   :END:
 ** TODO TODO child event inherits entries override at 21:30
    DEADLINE: <2018-01-04 Thu 21:30> SCHEDULED: <2018-01-04 Thu 21:30>
-   :PROPERTIES:
-   :ID:       c646d1c1-d997-45e0-ae0f-4f2353813eae
-   :END:
