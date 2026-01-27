@@ -1,6 +1,6 @@
 * org-wild-notifier.el
 
-[[https://github.com/emacsorphanage/org-wild-notifier.el/actions/workflows/test.yml][file:https://github.com/emacsorphanage/org-wild-notifier.el/actions/workflows/test.yml/badge.svg?branch=master]]
+[[https://github.com/emacsorphanage/org-wild-notifier/actions/workflows/test.yml][file:https://github.com/emacsorphanage/org-wild-notifier/actions/workflows/test.yml/badge.svg]]
 [[https://stable.melpa.org/#/org-wild-notifier][file:https://stable.melpa.org/packages/org-wild-notifier-badge.svg]]
 [[https://melpa.org/#/org-wild-notifier][file:https://melpa.org/packages/org-wild-notifier-badge.svg]]
 
